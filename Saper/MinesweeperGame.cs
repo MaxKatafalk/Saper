@@ -34,7 +34,7 @@ namespace Saper
         public bool MakeMove(int x, int y)
         {
             GameCell cell = Board.GetCell(x, y);
-            if (cell == null || cell.IsOpened() || cell.IsFlagged())
+            if (cell == null || cell.IsOpened() || cell.IsFlagged() || cell.HasQuestion())
                 return false;
 
             if (firstMove)
@@ -45,10 +45,9 @@ namespace Saper
                 GameStatus = 1;
             }
 
-            cell.Open();
-
             if (cell.HasMine)
             {
+                cell.Open();
                 GameStatus = 2;
                 return true;
             }
@@ -57,11 +56,16 @@ namespace Saper
             {
                 OpenArea(x, y);
             }
+            else
+            {
+                cell.Open();
+            }
 
             CheckWin();
 
             return true;
         }
+
 
         public void ToggleFlag(int x, int y)
         {
@@ -121,6 +125,8 @@ namespace Saper
             {
                 for (int dy = -1; dy <= 1; dy++)
                 {
+                    if (dx == 0 && dy == 0) continue;
+
                     int x = cellX + dx;
                     int y = cellY + dy;
 
@@ -139,17 +145,24 @@ namespace Saper
         private void OpenArea(int startX, int startY)
         {
             Queue<(int, int)> queue = new Queue<(int, int)>();
+            HashSet<(int, int)> visited = new HashSet<(int, int)>();
+
             queue.Enqueue((startX, startY));
+            visited.Add((startX, startY));
 
             while (queue.Count > 0)
             {
                 var (x, y) = queue.Dequeue();
                 GameCell cell = Board.GetCell(x, y);
 
-                if (cell == null || cell.IsOpened() || cell.HasMine)
+                if (cell == null || cell.IsFlagged())
                     continue;
 
-                cell.Open();
+                if (cell.HasMine)
+                    continue;
+
+                if (!cell.IsOpened())
+                    cell.Open();
 
                 if (cell.MinesAround == 0)
                 {
@@ -157,16 +170,20 @@ namespace Saper
                     {
                         for (int dy = -1; dy <= 1; dy++)
                         {
+                            if (dx == 0 && dy == 0) continue;
+
                             int nx = x + dx;
                             int ny = y + dy;
 
                             if (nx >= 0 && nx < Board.Width &&
                                 ny >= 0 && ny < Board.Height)
                             {
-                                GameCell neighbor = Board.GetCell(nx, ny);
-                                if (neighbor != null && !neighbor.IsOpened() && !neighbor.HasMine)
+                                var neighborPos = (nx, ny);
+
+                                if (!visited.Contains(neighborPos))
                                 {
-                                    queue.Enqueue((nx, ny));
+                                    visited.Add(neighborPos);
+                                    queue.Enqueue(neighborPos);
                                 }
                             }
                         }
@@ -175,10 +192,9 @@ namespace Saper
             }
         }
 
+
         private void CheckWin()
         {
-            int closedCells = 0;
-
             for (int x = 0; x < Board.Width; x++)
             {
                 for (int y = 0; y < Board.Height; y++)
@@ -186,15 +202,12 @@ namespace Saper
                     GameCell cell = Board.Cells[x, y];
                     if (!cell.IsOpened() && !cell.HasMine)
                     {
-                        closedCells++;
+                        return;
                     }
                 }
             }
 
-            if (closedCells == 0)
-            {
-                GameStatus = 3;
-            }
+            GameStatus = 3;
         }
 
         public void UpdateTimer()

@@ -88,5 +88,9 @@ namespace Saper
             minesAround = 0;
             state = 0;
         }
+        public void ResetState()
+        {
+            state = 0;
+        }
     }
 }
